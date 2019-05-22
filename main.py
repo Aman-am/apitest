@@ -87,8 +87,8 @@ def add_location():
 @app.route("/get_using_postgres", methods=["GET"])
 def get_using_postgres():
     try:
-        lat = request.json['lat']
-        long = request.json['long']
+        lat = float(request.args.get('latitude'))
+        long = float(request.args.get('longitude'))
     except:
         return "Please send Lat and Long"
 
@@ -109,10 +109,10 @@ def get_using_postgres():
 def distance():
     q = db.session.query(Places.key, Places.place_name, Places.latitude, Places.longitude).all()
     try:
-        lat1 = float(request.args.get('latitude'))  # 28.616700
-        long1 = float(request.args.get('longitude'))  # 77.216700
+        lat1 = float(request.args.get('latitude'))
+        long1 = float(request.args.get('longitude'))
     except:
-        return 'Please send Latitude and Longitude'              #77.216700
+        return 'Please send Latitude and Longitude'
     lat = []
     lon = []
     for i in range(len(q)):
@@ -120,14 +120,14 @@ def distance():
         y = q[i][3]
         lat.append(alchemyencoder(x))
         lon.append(alchemyencoder(y))
-    # print lat
-    # print lon
-    lat = filter(partial(is_not, None), lat)
-    lon = filter(partial(is_not, None), lon)
+    lat = list(filter(None, lat))
+    lon = list(filter(None, lon))
     lat_ = list(map(lambda i: radians(i), lat))
     lon_ = list(map(lambda i: radians(i), lon))
+
     long1, lat1 = map(radians, [long1, lat1])
     res = []
+
     for i in range(len(lat_)):
         dlon = long1 - lon_[i]
         dlat = lat1 - lat_[i]
@@ -140,10 +140,7 @@ def distance():
         res.append(y)
 
     radius = 5.00  # kilometers
-    # print len(res)
-    # print len(lat_), len(lon_)
 
-    # print('Distance (km) : ', res)
     yy = []
     for i in res:
         if i <= radius:
@@ -152,25 +149,18 @@ def distance():
             iy = 'Outside the area'
 
         yy.append(iy)
-
     res = [lati for a, lati in zip(yy, lat) if a.startswith("Inside")]
     res1 = [lati for a, lati in zip(yy, lon) if a.startswith("Inside")]
-    #print len(res), len(res1)
+    print (len(res), len(res1))
 
     uo = db.session.query(Places).filter(Places.latitude.in_(res), Places.longitude.in_(res1)).all()
-    #print uo
-    #print len(uo)
     places_schema = PlacesSchema(many=True)
-    # print user_schema
     output = places_schema.dump(uo).data
 
     output = json.dumps({'place': output}, default=alchemyencoder)
-    j = output.replace('"[', '[').replace(']"', ']')
+    # j = output.replace('"[', '[').replace(']"', ']')
 
-    return (json.dumps(json.loads(j), indent=2))
-
-
-
+    return (json.dumps(json.loads(output), indent=2))
 
 @app.route("/")
 def home():
