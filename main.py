@@ -189,7 +189,7 @@ def geoj():
     except:
         return 'Please send Latitude and Longitude'
     Point = 'POINT('+ str(lon) + ' ' +str(lat) + ')'
-    query = db.session.query(Boundary).filter(func.ST_Contains(Boundary.geom, func.ST_Transform(func.ST_GeometryFromText(Point,4326), 26918))).all()
+    query = db.session.query(Boundary.name, Boundary.type, Boundary.parent ).filter(func.ST_Contains(Boundary.geom, func.ST_Transform(func.ST_GeometryFromText(Point,4326), 4326))).all()
     print (query)
     schema = BoundarySchema(many=True)
     print (schema)
