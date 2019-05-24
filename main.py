@@ -1,17 +1,15 @@
 from flask import Flask,request,jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-import json, datetime, decimal
-from sqlalchemy import func
+import json, decimal
+from sqlalchemy import func, INT, TEXT, JSON, Column, and_
+from geoalchemy2 import Geometry
 from math import radians, cos, sin, asin, sqrt
-from functools import partial
-from operator import is_not
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Football123*@localhost/apitest'
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
-
 
 class Places(db.Model):
     """docstring for Place."""
@@ -36,25 +34,48 @@ class Places(db.Model):
         """"""
         return "<Place - '%s': '%s' - '%s'>" % (self.key, self.place_name, self.admin_name1)
 
+class Boundary(db.Model):
+    __tablename__ = 'boundary'
+
+    gid = Column(INT , primary_key=True)
+    name = Column(TEXT)
+    type = Column(TEXT)
+    parent = Column(TEXT)
+    geom = Column(Geometry(geometry_type='POLYGON', srid=4326))
+    geom = Column(TEXT)
+
+    def __init__(self, gid , geom, properties):
+        self.gid = gid
+        self.type = type
+        self.parent = parent
+        self.name = name
+        self.geom = geom
+
+    def __repr__(self):
+        return "<Places - '%s'>" % (self.name)
 
 class PlacesSchema(ma.ModelSchema):
     class Meta:
         model = Places
 
+class BoundarySchema(ma.ModelSchema):
+    class Meta:
+        model = Boundary
 
 def alchemyencoder(obj):
     """JSON encoder function for SQLAlchemy special classes."""
-    if isinstance(obj, datetime.date):
-        return obj.isoformat()
-    elif isinstance(obj, decimal.Decimal):
+    if isinstance(obj, decimal.Decimal):
         return float(obj)
 
 
 # API to create new location
 @app.route("/post_location", methods=["POST"])
 def add_location():
-    latitude = request.json['lat']
-    longitude = request.json['long']
+    try:
+        latitude = request.json['lat']
+        longitude = request.json['long']
+    except:
+        return "Please send Lat and Long"
     address = request.json['address'].split("+")
     if len(address) != 3:
         return "Invalid Address"
@@ -66,7 +87,9 @@ def add_location():
     if exists:
         return "pincode exists"
 
-    # Check for existing close enough lat+long
+    exists = db.session.query(Places.key).filter(and_(Places.latitude,latitude, Places.longitude == longitude) ).all()
+    if len(exists)>0:
+        return "location exists"
 
     new_location = Places(latitude, longitude, key,place_name,city)
 
@@ -99,8 +122,6 @@ def get_using_postgres():
     place_schema = PlacesSchema(many=True)
     output = place_schema.dump(result).data
     output = json.dumps({'place': output}, default=alchemyencoder)
-    # j = output.replace('"[', '[').replace(']"', ']')
-
     return (json.dumps(json.loads(output), indent=2))
 
 
@@ -156,9 +177,25 @@ def distance():
     uo = db.session.query(Places).filter(Places.latitude.in_(res), Places.longitude.in_(res1)).all()
     places_schema = PlacesSchema(many=True)
     output = places_schema.dump(uo).data
-
     output = json.dumps({'place': output}, default=alchemyencoder)
-    # j = output.replace('"[', '[').replace(']"', ']')
+    return (json.dumps(json.loads(output), indent=2))
+
+
+@app.route('/get_region' ,methods = ['GET'])
+def geoj():
+    try:
+        lat = float(request.args.get('latitude'))
+        lon = float(request.args.get('longitude'))
+    except:
+        return 'Please send Latitude and Longitude'
+    Point = 'POINT('+ str(lon) + ' ' +str(lat) + ')'
+    query = db.session.query(Boundary).filter(func.ST_Contains(Boundary.geom, func.ST_Transform(func.ST_GeometryFromText(Point,4326), 26918))).all()
+    print (query)
+    schema = BoundarySchema(many=True)
+    print (schema)
+    output = schema.dump(query).data
+    print (output)
+    output = json.dumps({'result': output}, default=alchemyencoder)
 
     return (json.dumps(json.loads(output), indent=2))
 
