@@ -6,8 +6,14 @@ from sqlalchemy import func, INT, TEXT, JSON, Column, and_
 from geoalchemy2 import Geometry
 from math import radians, cos, sin, asin, sqrt
 
+config = {
+    'user':'postgres',
+    'pw':'apitest123',
+    'db':'apitest'
+}
+
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Football123*@localhost/apitest'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://'+ config['user'] + ':' + config['pw'] + '@localhost/' + config['db'];
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 
@@ -72,8 +78,8 @@ def alchemyencoder(obj):
 @app.route("/post_location", methods=["POST"])
 def add_location():
     try:
-        latitude = request.json['lat']
-        longitude = request.json['long']
+        latitude = float(request.json['lat'])
+        longitude = float(request.json['long'])
     except:
         return "Please send Lat and Long"
     address = request.json['address'].split("+")
@@ -87,7 +93,7 @@ def add_location():
     if exists:
         return "pincode exists"
 
-    exists = db.session.query(Places.key).filter(and_(Places.latitude,latitude, Places.longitude == longitude) ).all()
+    exists = db.session.query(Places.key).filter(and_(Places.latitude==latitude, Places.longitude == longitude) ).all()
     if len(exists)>0:
         return "location exists"
 
@@ -98,11 +104,9 @@ def add_location():
 
     new_framework = db.session.query(Places).filter_by(key =new_location.key, place_name = new_location.place_name, admin_name1 = new_location.admin_name1 ).all()
     places_schema = PlacesSchema(many= True)
-    #print schema
     output = places_schema.dump(new_framework).data
     output = json.dumps({'Place': output}, default=alchemyencoder)
-    j = output.replace('"[', '[').replace(']"', ']')
-    return (json.dumps(json.loads(j), indent=2))
+    return (json.dumps(json.loads(output), indent=2))
 
 
 # API to fetch nearby points using postgres
@@ -177,7 +181,7 @@ def distance():
     output = json.dumps({'place': output}, default=alchemyencoder)
     return (json.dumps(json.loads(output), indent=2))
 
-
+# API to get region of any given point
 @app.route('/get_region' ,methods = ['GET'])
 def geoj():
     try:
