@@ -102,7 +102,6 @@ def add_location():
     output = places_schema.dump(new_framework).data
     output = json.dumps({'Place': output}, default=alchemyencoder)
     j = output.replace('"[', '[').replace(']"', ']')
-
     return (json.dumps(json.loads(j), indent=2))
 
 
@@ -153,7 +152,6 @@ def distance():
         dlon = long1 - lon_[i]
         dlat = lat1 - lat_[i]
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat_[i]) * sin(dlon / 2) ** 2
-
         c = 2 * asin(sqrt(a))
         r = 6371.00  # Radius of earth in kilometers.
         y = c * r
@@ -172,7 +170,6 @@ def distance():
         yy.append(iy)
     res = [lati for a, lati in zip(yy, lat) if a.startswith("Inside")]
     res1 = [lati for a, lati in zip(yy, lon) if a.startswith("Inside")]
-    print (len(res), len(res1))
 
     uo = db.session.query(Places).filter(Places.latitude.in_(res), Places.longitude.in_(res1)).all()
     places_schema = PlacesSchema(many=True)
@@ -190,13 +187,9 @@ def geoj():
         return 'Please send Latitude and Longitude'
     Point = 'POINT('+ str(lon) + ' ' +str(lat) + ')'
     query = db.session.query(Boundary.name, Boundary.type, Boundary.parent ).filter(func.ST_Contains(Boundary.geom, func.ST_Transform(func.ST_GeometryFromText(Point,4326), 4326))).all()
-    print (query)
     schema = BoundarySchema(many=True)
-    print (schema)
     output = schema.dump(query).data
-    print (output)
     output = json.dumps({'result': output}, default=alchemyencoder)
-
     return (json.dumps(json.loads(output), indent=2))
 
 @app.route("/")
